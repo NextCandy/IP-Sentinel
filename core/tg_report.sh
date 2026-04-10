@@ -18,12 +18,14 @@ if [ -z "$TG_TOKEN" ] || [ -z "$CHAT_ID" ]; then
     exit 0
 fi
 
-# 2. 节点元数据抓取
+# 2. 节点元数据抓取 (v3.0.1修复: 严格使用配置中的协议探测出口)
 NODE_NAME=$(hostname | cut -c 1-15)
-CURRENT_IP=$(curl -4 -s -m 5 api.ip.sb/ip || echo "Unknown")
+CURRENT_IP=$(curl -${IP_PREF:-4} -s -m 5 api.ip.sb/ip || echo "${BIND_IP:-Unknown}")
+# 为可能获取到的 IPv6 自动添加方括号护甲
+[[ "$CURRENT_IP" == *":"* ]] && [[ "$CURRENT_IP" != *"["* ]] && CURRENT_IP="[${CURRENT_IP}]"
 
-# 智能判断 IP 属性
-ISP_INFO=$(curl -4 -s -m 5 api.ip.sb/geoip | jq -r '.organization' 2>/dev/null)
+# 智能判断 IP 属性 (同步使用指定的协议出口拉取 GeoIP)
+ISP_INFO=$(curl -${IP_PREF:-4} -s -m 5 api.ip.sb/geoip | jq -r '.organization' 2>/dev/null)
 if [[ "$ISP_INFO" == *"Cloudflare"* ]]; then
     IP_TYPE="Cloudflare Warp 🛰️"
 else
