@@ -26,24 +26,19 @@ jobs:
       - name: Execute Trends Engine
         run: python scripts/fetch_trends.py
 
-      - name: Commit and Force Push
+      - name: Commit and Push
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
           git add data/keywords/
           
+          # 防御机制：如果没有新数据，就静默退出，不产生空提交
           if git diff --staged --quiet; then
             echo "No changes, skipping."
             exit 0
           fi
           
-          # 策略：如果上一次是机器人提交的，就直接覆盖它
-          LAST_AUTHOR=$(git log -1 --format='%an')
-          if [ "$LAST_AUTHOR" = "github-actions[bot]" ]; then
-            git commit --amend -m "chore(data): 🤖 自动机兵：刷新全战区热点词库 [v3.3.0 OTA]"
-          else
-            git commit -m "chore(data): 🤖 自动机兵：刷新全战区热点词库 [v3.3.0 OTA]"
-          fi
-          
-          git push --force origin main
+          # 策略：放弃危险的 amend 强制覆盖，采用带日期的标准安全提交
+          git commit -m "chore(data): 🤖 自动机兵：刷新全战区热点词库 [$(date +'%Y-%m-%d')]"
+          git push origin main
