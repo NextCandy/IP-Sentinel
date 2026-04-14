@@ -498,21 +498,42 @@ if [[ -n "$TG_TOKEN" ]] && [[ -n "$CHAT_ID" ]]; then
     IP_HASH=$(echo "${SAFE_PUBLIC_IP:-127.0.0.1}" | md5sum | cut -c 1-4 | tr 'a-z' 'A-Z')
     NODE_NAME="$(hostname | cut -c 1-10)_${IP_HASH}"
     
+    # ⚠️ 核心修复：提前构造注册暗号，供全新安装与首次架构重组使用
+    REG_MSG="#REGISTER#|${REGION_CODE}|${NODE_NAME}|${SAFE_PUBLIC_IP}|${AGENT_PORT}"
+    
     if [ "$UPGRADE_MODE" == "true" ]; then
-        echo -e "\n📡 正在向指挥部发送升级成功战报..."
-        curl -s -X POST "${TG_API_URL}" \
-            -d "chat_id=${CHAT_ID}" \
-            -d "parse_mode=Markdown" \
-            -d "text=✨ *IP-Sentinel 引擎热更新完成！*
+        # 【核心兼容逻辑】检查是否是首次升级到哈希命名架构
+        if ! grep -q "NAME_HASHED=\"true\"" "$CONFIG_FILE"; then
+            echo "NAME_HASHED=\"true\"" >> "$CONFIG_FILE"
+            
+            echo -e "\n📡 正在向指挥部发送架构重组通知..."
+            curl -s -X POST "${TG_API_URL}" \
+                -d "chat_id=${CHAT_ID}" \
+                -d "parse_mode=Markdown" \
+                -d "text=✨ *IP-Sentinel 引擎热更新完成！*
 📍 节点：\`${NODE_NAME}\`
 🌐 IP：\`${SAFE_PUBLIC_IP}\`
-🚀 状态：v3.3.2 OTA 动态活体养护引擎已部署" >/dev/null 2>&1
-        echo -e "\033[32m✅ 升级成功通知已推送到您的 Telegram！\033[0m"
+🚀 状态：v3.3.2 OTA 动态活体引擎已部署
+
+⚠️ *战区架构已重组，请务必点击下方指令并发送，以同步新的防撞档案：*
+\`${REG_MSG}\`" >/dev/null 2>&1
+            echo -e "\033[32m✅ 升级通知已推送！请前往 TG 点击注册指令完成身份同步！\033[0m"
+        else
+            echo -e "\n📡 正在向指挥部发送静默升级战报..."
+            curl -s -X POST "${TG_API_URL}" \
+                -d "chat_id=${CHAT_ID}" \
+                -d "parse_mode=Markdown" \
+                -d "text=✨ *IP-Sentinel 引擎热更新完成！*
+📍 节点：\`${NODE_NAME}\`
+🌐 IP：\`${SAFE_PUBLIC_IP}\`
+🚀 状态：v3.3.2 OTA 动态活体引擎已部署" >/dev/null 2>&1
+            echo -e "\033[32m✅ 升级成功通知已推送到您的 Telegram！\033[0m"
+        fi
     else
-        echo -e "\n📡 正在向指挥部发送注册暗号..."
-        # 构造注册暗号 (V3.1.3 协议升级: 携带 REGION_CODE 大区标识)
-        REG_MSG="#REGISTER#|${REGION_CODE}|${NODE_NAME}|${SAFE_PUBLIC_IP}|${AGENT_PORT}"
+        # 全新安装：直接打上哈希基因锁
+        echo "NAME_HASHED=\"true\"" >> "$CONFIG_FILE"
         
+        echo -e "\n📡 正在向指挥部发送注册暗号..."
         # 执行主动推送
         PUSH_RESULT=$(curl -s -X POST "${TG_API_URL}" \
             -d "chat_id=${CHAT_ID}" \
