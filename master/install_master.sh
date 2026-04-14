@@ -1,11 +1,14 @@
 #!/bin/bash
 
 # ==========================================================
-# 脚本名称: install_master.sh (IP-Sentinel 控制中枢部署脚本 v3.3.2)
+# 脚本名称: install_master.sh (IP-Sentinel 控制中枢部署脚本 v3.4.0)
 # 核心功能: 部署/卸载调度中枢、SQLite 资产管理、平滑热更新引擎
 # ==========================================================
 
-# [新增] 提取仓库直链前缀变量，方便后续在官方库和私库间一键切换
+# [v3.4.0 核心: 全局版本控制锚点]
+TARGET_VERSION="3.4.0"
+
+# 你的 GitHub 仓库 Raw 数据直链前缀
 REPO_RAW_URL="https://raw.githubusercontent.com/hotyue/IP-Sentinel/main"
 # 临时改为私库地址用于测试
 # REPO_RAW_URL="https://git.94211762.xyz/hotyue/IP-Sentinel/raw/branch/main"
@@ -15,7 +18,7 @@ DB_FILE="${MASTER_DIR}/sentinel.db"
 
 echo "========================================================"
 # [修改] 将欢迎语改为更通用的文案，因为现在不仅能部署，还能卸载
-echo "      🧠 欢迎使用 IP-Sentinel Master (控制中枢) v3.3.2"
+echo "      🧠 欢迎使用 IP-Sentinel Master (控制中枢) v${TARGET_VERSION}"
 echo "========================================================"
 
 # [新增] 交互式操作菜单：支持选择部署或调用卸载程序
@@ -50,7 +53,15 @@ if [ "$ACTION_CHOICE" == "1" ] && [ -f "${MASTER_DIR}/master.conf" ]; then
         
         # 汲取原配置进入内存
         source "${MASTER_DIR}/master.conf"
-        echo -e "\033[32m✅ 已激活 [平滑升级模式]，即将跳过基础配置，直接更新核心中枢...\033[0m"
+        
+        # [v3.4.0 核心] 升级后立即同步/补录版本号至配置文件
+        if grep -q "^MASTER_VERSION=" "${MASTER_DIR}/master.conf"; then
+            sed -i "s/^MASTER_VERSION=.*/MASTER_VERSION=\"$TARGET_VERSION\"/" "${MASTER_DIR}/master.conf"
+        else
+            echo "MASTER_VERSION=\"$TARGET_VERSION\"" >> "${MASTER_DIR}/master.conf"
+        fi
+        
+        echo -e "\033[32m✅ 已激活 [平滑升级模式]，版本已锚定为 v${TARGET_VERSION}...\033[0m"
     else
         echo -e "\033[33m🔄 您选择了重新配置，旧的中枢数据将被彻底抹除。\033[0m"
     fi
@@ -97,6 +108,8 @@ if [ "$UPGRADE_MODE" == "false" ]; then
     read -p "请输入 Telegram Bot Token: " TG_TOKEN
 
     cat > "${MASTER_DIR}/master.conf" << EOF
+# IP-Sentinel Master 本地固化配置 (v3.4.0)
+MASTER_VERSION="$TARGET_VERSION"
 TG_TOKEN="$TG_TOKEN"
 DB_FILE="$DB_FILE"
 MASTER_DIR="$MASTER_DIR"
