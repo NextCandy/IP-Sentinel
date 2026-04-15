@@ -1,0 +1,20 @@
+{
+  "region_name": "Canada - Toronto",
+  "google_module": {
+    "base_lat": 43.6532,
+    "base_lon": -79.3832,
+    "lang_params": "hl=en&gl=CA",
+    "valid_url_suffix": "ca"
+  },
+  "trust_module": {
+    "white_urls": [
+      "https://en.wikipedia.org/wiki/Special:Random",
+      "https://www.canada.ca/en.html",
+      "https://www.cbc.ca/",
+      "https://www.thestar.com/",
+      "https://www.ctvnews.ca/",
+      "https://www.canadapost-postescanada.ca/",
+      "https://www.td.com/"
+    ]
+  }
+}
