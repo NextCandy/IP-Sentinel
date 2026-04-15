@@ -1,17 +1,19 @@
 #!/bin/bash
 
 # ==========================================================
-# 脚本名称: install_master.sh (IP-Sentinel 控制中枢部署脚本 v3.4.0)
+# 脚本名称: install_master.sh (IP-Sentinel 控制中枢部署脚本 - 动态锚点版)
 # 核心功能: 部署/卸载调度中枢、SQLite 资产管理、平滑热更新引擎
 # ==========================================================
-
-# [v3.4.0 核心: 全局版本控制锚点]
-TARGET_VERSION="3.4.0"
 
 # 你的 GitHub 仓库 Raw 数据直链前缀
 REPO_RAW_URL="https://raw.githubusercontent.com/hotyue/IP-Sentinel/main"
 # 临时改为私库地址用于测试
 # REPO_RAW_URL="https://git.94211762.xyz/hotyue/IP-Sentinel/raw/branch/main"
+
+# [核心: 动态获取全局版本控制锚点 (Single Source of Truth)]
+TARGET_VERSION=$(curl -s -m 3 "${REPO_RAW_URL}/version.txt" | tr -d '[:space:]')
+# 🛡️ 兜底防线：如果网络波动拉取失败，启用内置的安全兜底版本
+TARGET_VERSION=${TARGET_VERSION:-"3.5.0"}
 
 MASTER_DIR="/opt/ip_sentinel_master"
 DB_FILE="${MASTER_DIR}/sentinel.db"
@@ -108,7 +110,7 @@ if [ "$UPGRADE_MODE" == "false" ]; then
     read -p "请输入 Telegram Bot Token: " TG_TOKEN
 
     cat > "${MASTER_DIR}/master.conf" << EOF
-# IP-Sentinel Master 本地固化配置 (v3.4.0)
+# IP-Sentinel Master 本地固化配置 (v${TARGET_VERSION})
 MASTER_VERSION="$TARGET_VERSION"
 TG_TOKEN="$TG_TOKEN"
 DB_FILE="$DB_FILE"

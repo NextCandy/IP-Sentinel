@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # ==========================================================
-# 脚本名称: install.sh (IP-Sentinel 分布式边缘节点部署脚本 v3.4.0 - OTA 活体引擎)
-# 核心功能: 区域选择、模块按需开启、官方机器人一键配置、平滑热更新、版本状态机路由
+# 脚本名称: install.sh (IP-Sentinel 分布式边缘节点部署脚本 - 动态锚点版)
+# 核心功能: 战区分组菜单、模块按需开启、官方机器人一键配置、版本状态机路由
 # ==========================================================
 
 # 你的 GitHub 仓库 Raw 数据直链前缀
@@ -12,8 +12,10 @@ REPO_RAW_URL="https://raw.githubusercontent.com/hotyue/IP-Sentinel/main"
 INSTALL_DIR="/opt/ip_sentinel"
 CONFIG_FILE="${INSTALL_DIR}/config.conf"
 
-# [v3.4.0 核心: 全局版本控制锚点]
-TARGET_VERSION="3.4.0"
+# [核心: 动态获取全局版本控制锚点 (Single Source of Truth)]
+TARGET_VERSION=$(curl -s -m 3 "${REPO_RAW_URL}/version.txt" | tr -d '[:space:]')
+# 🛡️ 兜底防线：如果网络波动拉取失败，启用内置的安全兜底版本
+TARGET_VERSION=${TARGET_VERSION:-"3.5.0"}
 
 # 轻量级版本号比对函数 (例如: version_lt "3.3.1" "3.4.0" 返回 true)
 version_lt() {
@@ -121,9 +123,23 @@ echo -e "\033[32m✅ 环境清理完毕，幽灵进程已肃清！\033[0m"
 # ==========================================================
 if [ "$UPGRADE_MODE" == "false" ]; then
 
-    # 📍 动态一级菜单：国家选择
-    echo -e "\n\033[36m📍 【第一级】请选择目标国家/地区:\033[0m"
-    jq -r '.countries[] | "\(.id)|\(.name)|\(.keyword_file)"' /tmp/map.json > /tmp/countries.txt
+    # 📍 动态零级菜单：战区(大洲)选择
+    echo -e "\n\033[36m📍 【第零级】请选择目标战区 (Continent):\033[0m"
+    jq -r '.continents[] | "\(.id)|\(.name)"' /tmp/map.json > /tmp/continents.txt
+    i=1; CONT_MAP=()
+    while IFS="|" read -r cont_id cont_name; do
+        echo "  $i) $cont_name"
+        CONT_MAP[$i]="$cont_id"
+        ((i++))
+    done < /tmp/continents.txt
+
+    read -p "请输入选择 [1-$((i-1))] (默认1): " CONT_SEL
+    CONT_SEL=${CONT_SEL:-1}
+    CONT_ID="${CONT_MAP[$CONT_SEL]}"
+
+    # 📍 动态一级菜单：国家选择 (基于选中战区)
+    echo -e "\n\033[36m📍 【第一级】正在检索 [$CONT_ID] 战区下的国家/地区...\033[0m"
+    jq -r ".continents[] | select(.id==\"$CONT_ID\") | .countries[] | \"\(.id)|\(.name)|\(.keyword_file)\"" /tmp/map.json > /tmp/countries.txt
     i=1; COUNTRY_MAP=(); KEYWORD_MAP=()
     while IFS="|" read -r c_id c_name k_file; do
         echo "  $i) $c_name"
@@ -138,9 +154,9 @@ if [ "$UPGRADE_MODE" == "false" ]; then
     KEYWORD_FILE="${KEYWORD_MAP[$C_SEL]}"
     REGION_CODE="$COUNTRY_ID" # 兼容旧版的 config.conf
 
-    # 📍 动态二级菜单：省/州选择
+    # 📍 动态二级菜单：省/州选择 (基于选中战区和国家)
     echo -e "\n\033[36m📍 【第二级】正在检索 [$COUNTRY_ID] 的行政区数据...\033[0m"
-    jq -r ".countries[] | select(.id==\"$COUNTRY_ID\") | .states[] | \"\(.id)|\(.name)\"" /tmp/map.json > /tmp/states.txt
+    jq -r ".continents[] | select(.id==\"$CONT_ID\") | .countries[] | select(.id==\"$COUNTRY_ID\") | .states[] | \"\(.id)|\(.name)\"" /tmp/map.json > /tmp/states.txt
     STATE_COUNT=$(wc -l < /tmp/states.txt)
 
     if [ "$STATE_COUNT" -eq 1 ]; then
@@ -158,9 +174,9 @@ if [ "$UPGRADE_MODE" == "false" ]; then
         STATE_ID="${STATE_MAP[$S_SEL]}"
     fi
 
-    # 📍 动态三级菜单：城市选择
+    # 📍 动态三级菜单：城市选择 (基于战区、国家、州三层过滤)
     echo -e "\n\033[36m📍 【第三级】请锁定具体城市节点:\033[0m"
-    jq -r ".countries[] | select(.id==\"$COUNTRY_ID\") | .states[] | select(.id==\"$STATE_ID\") | .cities[] | \"\(.id)|\(.name)\"" /tmp/map.json > /tmp/cities.txt
+    jq -r ".continents[] | select(.id==\"$CONT_ID\") | .countries[] | select(.id==\"$COUNTRY_ID\") | .states[] | select(.id==\"$STATE_ID\") | .cities[] | \"\(.id)|\(.name)\"" /tmp/map.json > /tmp/cities.txt
     CITY_COUNT=$(wc -l < /tmp/cities.txt)
 
     if [ "$CITY_COUNT" -eq 1 ]; then
@@ -178,8 +194,8 @@ if [ "$UPGRADE_MODE" == "false" ]; then
         CITY_ID="${CITY_MAP[$CI_SEL]}"
     fi
 
-    # 清理临时文件
-    rm -f /tmp/map.json /tmp/countries.txt /tmp/states.txt /tmp/cities.txt
+    # 清理临时文件 (增加清理 continents.txt)
+    rm -f /tmp/map.json /tmp/continents.txt /tmp/countries.txt /tmp/states.txt /tmp/cities.txt
 
     # 本地工作目录初始化 (支持 v3.0 的深度层级)
     mkdir -p "${INSTALL_DIR}/core"
